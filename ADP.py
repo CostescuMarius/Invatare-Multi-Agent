@@ -26,6 +26,8 @@ class AdaptiveDynamicProgramming:
             if state in self.mdp.terminals:
                 continue
 
+            self.agent.update_current_state(state)
+
             action = self.agent.act(state)
             if action is not None:
                 expected_utility = 0
@@ -33,14 +35,15 @@ class AdaptiveDynamicProgramming:
                     next_state = (state[0] + move[0], state[1] + move[1])
 
                     if next_state in self.mdp.states:
-                        self.agent.update_state(next_state)
+                        self.agent.update_move_state(next_state)
                         
                         expected_utility += prob * self.U[next_state]
                     else:
+                        self.agent.update_move_state(state)
                         expected_utility += prob * self.U[state]
 
                     if self.gui_callback:
-                        self.gui_callback(self.agent.current_state)
+                        self.gui_callback(self.agent.current_state, self.agent.move_state, expected_utility)
 
                 # Formula Bellman
                 U_new[state] = self.mdp.rewards[state] + self.gamma * expected_utility
@@ -85,15 +88,20 @@ class AdaptiveDynamicProgramming:
 
 
     def iterate_utilities(self, epsilon=0.01, max_iterations=100):
+        delta_per_iteration = []
+        policy_per_iteration = []
         for i in range(max_iterations):
             prev_U = self.U.copy()
             self.update_utilities()
 
             delta = max(abs(self.U[s] - prev_U[s]) for s in self.mdp.states)
+            delta_per_iteration.append(delta)
+            policy_per_iteration.append(self.agent.policy)
             print(f"Iteration {i + 1}, Delta: {delta:.4f}")
 
-            if delta < epsilon:
-                print("Done!")
-                break
-
             self.update_policy()
+
+            if delta < epsilon:
+                return delta_per_iteration, policy_per_iteration
+
+            
